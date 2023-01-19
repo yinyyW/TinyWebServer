@@ -26,7 +26,7 @@ const char* doc_root = "../resource";
 int setnonblocking(int fd) {
     int old_option = fcntl(fd, F_GETFL);
     int new_option = old_option | O_NONBLOCK;
-    fcntl(fd, F_SETFD, new_option);
+    fcntl(fd, F_SETFL, new_option);
     return old_option;
 }
 
@@ -100,6 +100,8 @@ void http_conn::init() {
 
 http_conn::LINE_STATUS http_conn::parse_line() {
     char temp;
+    std::cout << "checked idx: " << m_checked_idx << std::endl;
+    std::cout << "read idx: " << m_read_idx << std::endl;
     for (; m_checked_idx < m_read_idx; ++m_checked_idx) {
         temp = m_read_buf[m_checked_idx];
         if (temp == '\r') {
@@ -195,6 +197,7 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char* text) {
 }
 
 http_conn::HTTP_CODE http_conn::parse_headers(char* text ) {
+    // std::cout << "parse header: " << text << std::endl;
     if (text[0] == '\0') {
         // end of headers
         if (m_content_length != 0) {
@@ -217,7 +220,7 @@ http_conn::HTTP_CODE http_conn::parse_headers(char* text ) {
         text += strspn(text, " \t");
         m_host = text;
     } else {
-        std::cout << "Oop! Unknown Header" << text << std::endl;
+        // std::cout << "Oop! Unknown Header: " << text << std::endl;
     }
     return NO_REQUEST;
 }
@@ -278,6 +281,7 @@ http_conn::HTTP_CODE http_conn::do_request() {
     strcpy(m_real_file, doc_root);
     int len = strlen(doc_root);
     strncpy(m_real_file + len, m_url, FILENAME_LEN - len - 1);
+    std::cout << "file path: " << m_real_file << std::endl;
     
     // validate file path
     if (stat(m_real_file, &m_file_stat) < 0) {
@@ -349,6 +353,7 @@ bool http_conn::add_blank_line() {
 }
 
 bool http_conn::process_write(HTTP_CODE ret) {
+    std::cout << "process write, http_code: " << ret << std::endl;
     switch (ret) {
         case INTERNAL_ERROR: {
             add_status_line(500, error_500_title);
@@ -406,6 +411,7 @@ bool http_conn::write() {
     int temp = 0;
     int bytes_have_send = 0;
     int bytes_to_send = m_write_idx;
+    // std::cout << "bytes to send: " << bytes_to_send << std::endl;
     
     // if response is empty
     if (bytes_to_send == 0) {

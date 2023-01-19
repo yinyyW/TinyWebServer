@@ -81,13 +81,13 @@ int main(int argc, char* argv[]) {
     addfd(epollfd, listenfd, false);
     http_conn::m_epollfd = epollfd;
     
+    std::cout << "start server.\n";
     while (true) {
         int number = epoll_wait(epollfd, events, MAX_EVENT_NUMBER, -1);
         if (number < 0 && errno != EINTR) {
             std::cout << "epoll failure.\n";
             break;
         }
-        
         for (int i = 0; i < number; ++i) {
             int sockfd = events[i].data.fd;
             if (sockfd == listenfd) {
