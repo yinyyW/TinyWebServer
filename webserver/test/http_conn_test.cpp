@@ -49,6 +49,9 @@ int main(int argc, char* argv[]) {
     } catch (...) {
         return 1;
     }
+    connection_pool* conn_pool = connection_pool::getInstance();
+    conn_pool->init("localhost", "root", "comp9313", 
+                    "tiny_web_server", 3306, 5, true);
     
     // init users
     http_conn* users = new http_conn[MAX_FD];
@@ -102,7 +105,7 @@ int main(int argc, char* argv[]) {
                 if (http_conn::m_user_count > MAX_FD) {
                     show_error(connfd, "Internal server busy");
                 }
-                users[connfd].init(connfd, client_address);
+                users[connfd].init(connfd, client_address, conn_pool);
             } else if (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
                 users[sockfd].close_conn();
             } else if (events[i].events & EPOLLIN) {
