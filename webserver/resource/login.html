@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Login</title>
+    </head>
+    <body>
+        <br/>
+        <br/>
+        <h1 align="center"><strong>Login Page</strong></h1>
+        <br/>  
+            <div class="login">
+                    <form method="post">
+                            <div align="center"><input type="text" name="user" placeholder="username" required="required"></div><br/>
+                            <div align="center"><input type="password" name="password" placeholder="password" required="required"></div><br/>
+                            <div align="center"><button type="submit">login</button></div>
+                    </form>
+            </div>
+    </body>
+    <script>
+        document.querySelector("form").addEventListener("submit", (event) => {
+            event.preventDefault();
+            const url = "/login";
+            const username = document.querySelector("input[name='user']").value;
+            const password = document.querySelector("input[name='password").value;
+            const xhr = new XMLHttpRequest();
+            const data = "user=" + username + "&password=" + password;
+            // console.log(data);
+            xhr.onreadystatechange = () => {
+                console.log(xhr);
+                if(xhr.readyState == 4) {
+                    console.log(xhr.response);
+                }
+            };
+            xhr.open("POST", url, true);
+            xhr.send(data);
+        })
+    </script>
+</html>

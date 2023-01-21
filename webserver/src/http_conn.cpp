@@ -1,9 +1,11 @@
 #include "../include/http_conn.h"
-#include <asm-generic/errno-base.h>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <fcntl.h>
+#include <mysql/mysql.h>
+#include <string>
+#include <strings.h>
 #include <sys/epoll.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -12,6 +14,9 @@
 
 // HTTP response status
 const char* ok_200_title = "OK";
+const char* ok_200_form = "Success";
+const char* ok_201_title = "Created";
+const char* ok_201_form = "User created successfully";
 const char* error_400_title = "Bad Request";
 const char* error_400_form = "Your request has bad syntax or is inherently impossible to satisfy.\n";
 const char* error_403_title = "Forbidden";
@@ -68,9 +73,10 @@ void http_conn::close_conn(bool real_close) {
     }
 }
 
-void http_conn::init(int sockfd, const sockaddr_in &addr) {
+void http_conn::init(int sockfd, const sockaddr_in &addr, connection_pool* pool) {
     m_sockfd = sockfd;
     m_address = addr;
+    m_pool = pool;
     // debug
     // int reuse = 1;
     // setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
@@ -100,8 +106,8 @@ void http_conn::init() {
 
 http_conn::LINE_STATUS http_conn::parse_line() {
     char temp;
-    std::cout << "checked idx: " << m_checked_idx << std::endl;
-    std::cout << "read idx: " << m_read_idx << std::endl;
+    // std::cout << "checked idx: " << m_checked_idx << std::endl;
+    // std::cout << "read idx: " << m_read_idx << std::endl;
     for (; m_checked_idx < m_read_idx; ++m_checked_idx) {
         temp = m_read_buf[m_checked_idx];
         if (temp == '\r') {
@@ -159,7 +165,7 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char* text) {
     if (strcasecmp(method, "GET") == 0) {
         m_method = GET;
         std::cout << "request method is GET\n";
-    } else if (strcasecmp(method, "POST")) {
+    } else if (strcasecmp(method, "POST") == 0) {
         m_method = POST;
         std::cout << "request method is POST\n";
     } else {
@@ -229,6 +235,7 @@ http_conn::HTTP_CODE http_conn::parse_content(char* text) {
     if (m_read_idx >= m_checked_idx + m_content_length) {
         text[m_content_length] = '\0';
         std::cout << "request body: " << text << std::endl;
+        m_content = text;
         return GET_REQUEST;
     }
     return NO_REQUEST;
@@ -276,7 +283,102 @@ http_conn::HTTP_CODE http_conn::process_read() {
     return NO_REQUEST;
 }
 
+http_conn::HTTP_CODE http_conn::user_register() {
+    // extract user's name and password
+    char* user = m_content;
+    char* password = strpbrk(m_content, "&");
+    if (password == NULL) {
+        return BAD_REQUEST;
+    }
+    *password++ = '\0';
+    
+    user = strpbrk(user, "="); 
+    password = strpbrk(password, "=");
+    if (user == NULL || password == NULL) {
+        return BAD_REQUEST;
+    }
+    ++user;
+    ++password;
+    
+    // find user in database
+    MYSQL* sql = NULL;
+    connectionRAII sql_conn = connectionRAII(&sql, m_pool);
+    const std::string query = "SELECT * FROM user where username='" 
+                                + std::string(user) + "'";
+    std::cout << "query: " << query << std::endl;
+    if (mysql_query(sql, query.c_str())) {
+        std::cout << "error: " << mysql_error(sql) << std::endl;
+        return BAD_REQUEST;
+    }
+    MYSQL_RES *result = mysql_store_result(sql);
+    MYSQL_ROW row = mysql_fetch_row(result);
+    if (row != NULL) {
+        return CONFLICT;
+    }
+    // insert user;
+    std::string insert_query = "INSERT INTO user(username, password) VALUES('" 
+                                + std::string(user) + "','"
+                                + std::string(password) + "')";
+    std::cout << "insert query: " << insert_query << std::endl;
+    if (mysql_query(sql, insert_query.c_str())) {
+        std::cout << "error: " << mysql_error(sql) << std::endl;
+        return BAD_REQUEST;
+    }
+    std::cout << "register ok.\n";
+    return CREATED;
+}
+
+http_conn::HTTP_CODE http_conn::user_login() {
+    // extract user's name and password
+    char* user = m_content;
+    char* password = strpbrk(m_content, "&");
+    if (password == NULL) {
+        return BAD_REQUEST;
+    }
+    *password++ = '\0';
+    
+    user = strpbrk(user, "="); 
+    password = strpbrk(password, "=");
+    if (user == NULL || password == NULL) {
+        return BAD_REQUEST;
+    }
+    ++user;
+    ++password;
+    
+    // find user in database
+    MYSQL* sql = NULL;
+    connectionRAII sql_conn = connectionRAII(&sql, m_pool);
+    const std::string query = "SELECT * FROM user where username='" 
+                                + std::string(user) + "'";
+    std::cout << "query: " << query << std::endl;
+    if (mysql_query(sql, query.c_str())) {
+        std::cout << "error: " << mysql_error(sql) << std::endl;
+        return BAD_REQUEST;
+    }
+    MYSQL_RES *result = mysql_store_result(sql);
+    MYSQL_ROW row = mysql_fetch_row(result);
+    if (row == NULL || strcmp(std::string(row[1]).c_str(), password) != 0) {
+        return UNAUTHORISED;
+    }
+    return OK;
+}
+
+http_conn::HTTP_CODE http_conn::api_request() {
+    std::cout << "api request.\n";
+    if (m_method == POST) {
+        if (strcasecmp(m_url, "/register") == 0) {
+            return user_register();
+        } else if (strcasecmp(m_url, "/login") == 0) {
+            return user_login();
+        }
+    }
+    return NO_REQUEST;
+}
+
 http_conn::HTTP_CODE http_conn::do_request() {
+    if (strchr(m_url, '.') == NULL) {
+        return api_request();
+    }
     // path of the file
     strcpy(m_real_file, doc_root);
     int len = strlen(doc_root);
@@ -334,10 +436,20 @@ bool http_conn::add_status_line(int status, const char* title) {
     return add_response("%s %d %s\r\n", "HTTP/1.1", status, title);
 }
 
-bool http_conn::add_headers(int content_length) {
+bool http_conn::add_headers(int content_length, bool api_response) {
+    if (api_response) {
+        return add_content_type("text/plain")
+                && add_content_length(content_length)
+                && add_linger()
+                && add_blank_line();
+    }
     return add_content_length(content_length)
-            &&add_linger()
+            && add_linger()
             && add_blank_line();
+}
+
+bool http_conn::add_content_type(const char* type) {
+    return add_response("Content-type:%s\r\n", type);
 }
 
 bool http_conn::add_content_length(int content_length) {
@@ -364,9 +476,9 @@ bool http_conn::process_write(HTTP_CODE ret) {
             break;
         }
         case BAD_REQUEST: {
-            add_status_line(404, error_404_title);
-            add_headers(strlen(error_404_form));
-            if (!add_content(error_404_form)) {
+            add_status_line(400, error_400_title);
+            add_headers(strlen(error_400_form));
+            if (!add_content(error_400_form)) {
                 return false;
             }
             break;
@@ -396,6 +508,40 @@ bool http_conn::process_write(HTTP_CODE ret) {
                     return false;
                 }
             }
+        }
+        case CONFLICT: {
+            const char* error_user_exists = "User has already exist.\n";
+            add_status_line(400,error_400_title);
+            add_headers(strlen(error_user_exists), true);
+            if (!add_content(error_user_exists)) {
+                return false;
+            }
+            break;
+        }
+        case CREATED: {
+            add_status_line(201, ok_201_title);
+            add_headers(strlen(ok_201_form), true);
+            if (!add_content(ok_201_form)) {
+                return false;
+            }
+            break;
+        }
+        case UNAUTHORISED: {
+            const char* error_incorrect_user = "Username or password not correct.\n";
+            add_status_line(400, error_400_title);
+            add_headers(strlen(error_incorrect_user), true);
+            if (!add_content(error_incorrect_user)) {
+                return false;
+            }
+            break;
+        }
+        case OK: {
+            add_status_line(200, ok_200_title);
+            add_headers(strlen(ok_200_form), true);
+            if (!add_content(ok_200_form)) {
+                return false;
+            }
+            break;
         }
         default: {
             return false;

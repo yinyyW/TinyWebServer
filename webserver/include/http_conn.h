@@ -2,6 +2,7 @@
 #define HTTPCONNECTION_H
 
 #include <iostream>
+#include <string>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/types.h>
@@ -18,6 +19,7 @@
 #include <pthread.h>
 #include <stdarg.h>
 #include <errno.h>
+#include "sql_connection_pool.h"
 
 class http_conn {
     // ############# CONSTANT VARIABLES #############
@@ -29,7 +31,8 @@ class http_conn {
         enum CHECK_STATE { CHECK_STATE_REQUESTLINE = 0, CHECK_STATE_HEADER, 
                             CHECK_STATE_CONTENT };
         enum HTTP_CODE { NO_REQUEST, GET_REQUEST, BAD_REQUEST, NO_RESOURCE,
-                        FORBIDDEN_REQUEST, FILE_REQUEST, INTERNAL_ERROR, CLOSED_CONNECTION };
+                        FORBIDDEN_REQUEST, FILE_REQUEST, INTERNAL_ERROR, CLOSED_CONNECTION,
+                        CONFLICT, UNAUTHORISED, CREATED, OK };
         enum LINE_STATUS { LINE_OK = 0, LINE_BAD, LINE_OPEN };
 
     // ############# FUNCTIONS #############
@@ -40,7 +43,7 @@ class http_conn {
         ~http_conn() {}
 
         // utility functions
-        void init(int sockfd, const sockaddr_in& addr);
+        void init(int sockfd, const sockaddr_in& addr, connection_pool* pool);
         void close_conn(bool real_close = true);
         void process();
         bool read();
@@ -58,6 +61,9 @@ class http_conn {
         HTTP_CODE parse_headers(char* text);
         HTTP_CODE parse_content(char* text);
         HTTP_CODE do_request();
+        HTTP_CODE api_request();
+        HTTP_CODE user_register();
+        HTTP_CODE user_login();
         char* get_line() { return m_read_buf + m_start_line; };
         LINE_STATUS parse_line();
 
@@ -66,7 +72,8 @@ class http_conn {
         bool add_response(const char* format, ...);
         bool add_content(const char* content);
         bool add_status_line(int status, const char* title);
-        bool add_headers(int content_length);
+        bool add_headers(int content_length, bool api_response = false);
+        bool add_content_type(const char* type);
         bool add_content_length(int content_length);
         bool add_linger();
         bool add_blank_line();
@@ -75,6 +82,7 @@ class http_conn {
     public:
         static int m_epollfd;
         static int m_user_count;
+        connection_pool* m_pool;
     
     private:
         // client's socket and address
@@ -100,6 +108,7 @@ class http_conn {
         char* m_version;
         char* m_host;
         int m_content_length;
+        char* m_content;
         bool m_linger;
 
         // response info
