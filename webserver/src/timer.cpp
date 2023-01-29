@@ -114,3 +114,18 @@ void timer_lst::tick() {
         tmp = head;
     }
 }
+
+void timer_lst::print() {
+    if (head == NULL) {
+        printf("empty list.\n");
+        return;
+    }
+    timer* curr = head;
+    int cnt = 1;
+    while (curr != NULL) {
+        printf("timer %d expire: %lu, ", cnt, curr->expire);
+        curr = curr->next;
+        ++cnt;
+    }
+    printf("\n");
+}

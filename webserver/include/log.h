@@ -11,17 +11,19 @@
 
 class Log {
     public:
-        static Log* getInstance() {
+        static Log* get_instance() {
             static Log instance;
             return &instance;
         }
         bool init(const char *file_name, int close_log,
                     int log_buf_size = 8192, int split_lines = 5000000, int max_queue_size = 0);
         static void* flush_log_thread(void* args) {
-            return Log::getInstance()->async_write_log();
+            return Log::get_instance()->async_write_log();
         }
         void write_log(int level, const char *format, ...);
         void flush(void);
+        int get_close_log() { return m_close_log; }
+        void set_close_log(int close_log) { m_close_log = close_log; }
         
     private:
         Log();
@@ -31,6 +33,7 @@ class Log {
             while (m_log_queue->pop(single_log)) {
                 m_mutex.lock();
                 fputs(single_log.c_str(), m_fp);
+                m_mutex.unlock();
             }
             return nullptr;
         }
@@ -52,9 +55,9 @@ class Log {
         
 };
 
-#define LOG_DEBUG(format, ...) if(m_close_log == 0) {Log::get_instance()->write_log(0, format, ##__VA_ARGS__); Log::get_instance()->flush();}
-#define LOG_INFO(format, ...) if(m_close_log == 0) {Log::get_instance()->write_log(1, format, ##__VA_ARGS__); Log::get_instance()->flush();}
-#define LOG_WARN(format, ...) if(m_close_log == 0) {Log::get_instance()->write_log(2, format, ##__VA_ARGS__); Log::get_instance()->flush();}
-#define LOG_ERROR(format, ...) if(m_close_log == 0) {Log::get_instance()->write_log(3, format, ##__VA_ARGS__); Log::get_instance()->flush();}
+#define LOG_DEBUG(format, ...) if(Log::get_instance()->get_close_log() == 0) {Log::get_instance()->write_log(0, format, ##__VA_ARGS__); Log::get_instance()->flush();}
+#define LOG_INFO(format, ...) if(Log::get_instance()->get_close_log() == 0) {Log::get_instance()->write_log(1, format, ##__VA_ARGS__); Log::get_instance()->flush();}
+#define LOG_WARN(format, ...) if(Log::get_instance()->get_close_log() == 0) {Log::get_instance()->write_log(2, format, ##__VA_ARGS__); Log::get_instance()->flush();}
+#define LOG_ERROR(format, ...) if(Log::get_instance()->get_close_log() == 0) {Log::get_instance()->write_log(3, format, ##__VA_ARGS__); Log::get_instance()->flush();}
 
 #endif

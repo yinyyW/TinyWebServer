@@ -32,6 +32,7 @@ class timer_lst {
         timer_lst();
         ~timer_lst();
         
+        void print();
         void add_timer(timer* t);
         void adjust_timer(timer* t);
         void del_timer(timer* t);
@@ -40,7 +41,6 @@ class timer_lst {
     private:
         timer* head;
         timer* tail;
-        void (*cb_func)(client_data*);
 };
 
 #endif
