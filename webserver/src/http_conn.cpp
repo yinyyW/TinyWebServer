@@ -26,7 +26,7 @@ const char* error_404_form = "The requested file was not found on this service.\
 const char* error_500_title = "Internal Error";
 const char* error_500_form = "There was an unusual problem serving the requested file.\n";
 // resource folder
-const char* doc_root = "../resource";
+// const char* doc_root = "../resource";
 
 int setnonblocking(int fd) {
     int old_option = fcntl(fd, F_GETFL);
@@ -73,10 +73,11 @@ void http_conn::close_conn(bool real_close) {
     }
 }
 
-void http_conn::init(int sockfd, const sockaddr_in &addr, connection_pool* pool) {
+void http_conn::init(int sockfd, const sockaddr_in &addr, char* root, connection_pool* pool) {
     m_sockfd = sockfd;
     m_address = addr;
     m_pool = pool;
+    doc_root = root;
     // debug
     // int reuse = 1;
     // setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));

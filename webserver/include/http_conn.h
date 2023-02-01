@@ -43,11 +43,12 @@ class http_conn {
         ~http_conn() {}
 
         // utility functions
-        void init(int sockfd, const sockaddr_in& addr, connection_pool* pool);
+        void init(int sockfd, const sockaddr_in& addr, char* doc_root, connection_pool* pool);
         void close_conn(bool real_close = true);
         void process();
         bool read();
         bool write();
+        sockaddr_in *get_address() { return &m_address; }
 
     private:
         // initialize connection
@@ -88,6 +89,7 @@ class http_conn {
         // client's socket and address
         int m_sockfd;
         sockaddr_in m_address;
+        char* doc_root;
 
         // member variables for reading request/sending response
         char m_read_buf[READ_BUFFER_SIZE];

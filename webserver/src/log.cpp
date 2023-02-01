@@ -41,15 +41,15 @@ bool Log::init(const char *file_name, int close_log, int log_buf_size,
     struct tm *sys_tm = localtime(&t);
     
     // directory name and file name
-    char log_full_name[256] = {0};
+    char log_full_name[512] = {0};
     const char *p = strrchr(file_name, '/');
     if (p == NULL) {
-        snprintf(log_full_name, 255, "%d_%02d_%02d_%s",
+        snprintf(log_full_name, 511, "%d_%02d_%02d_%s",
                     sys_tm->tm_year + 1900, sys_tm->tm_mon + 1, sys_tm->tm_mday, file_name);
     } else {
         strcpy(log_name, p + 1);
         strncpy(dir_name, file_name, p - file_name + 1);
-        snprintf(log_full_name, 255, "%s%d_%02d_%02d_%s",
+        snprintf(log_full_name, 511, "%s%d_%02d_%02d_%s",
                     dir_name, sys_tm->tm_year + 1900, sys_tm->tm_mon + 1, sys_tm->tm_mday, log_name);
     }
     
@@ -102,17 +102,17 @@ void Log::write_log(int level, const char *format, ...) {
         fflush(m_fp);
         fclose(m_fp);
         
-        char new_log[256] = {0};
+        char new_log[512] = {0};
         char tail[16] = {0};
        
         snprintf(tail, 16, "%d_%02d_%02d_", sys_tm->tm_year + 1900,
                 sys_tm->tm_mon + 1, sys_tm->tm_mday);
         if (m_today != sys_tm->tm_mday) {
-            snprintf(new_log, 256, "%s%s%s", dir_name, tail, log_name);
+            snprintf(new_log, 511, "%s%s%s", dir_name, tail, log_name);
             m_today = sys_tm->tm_mday;
             m_count_line = 0;
         } else {
-            snprintf(new_log, 255, "%s%s%s.%lld", dir_name,
+            snprintf(new_log, 511, "%s%s%s.%lld", dir_name,
                         tail, log_name, m_count_line / m_max_lines);
         }
         m_fp = fopen(new_log, "a");

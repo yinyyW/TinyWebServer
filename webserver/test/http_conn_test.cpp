@@ -104,8 +104,10 @@ int main(int argc, char* argv[]) {
                 }
                 if (http_conn::m_user_count > MAX_FD) {
                     show_error(connfd, "Internal server busy");
+                    continue;
                 }
-                users[connfd].init(connfd, client_address, conn_pool);
+                char resource[128] = "../resource";
+                users[connfd].init(connfd, client_address, resource, conn_pool);
             } else if (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
                 users[sockfd].close_conn();
             } else if (events[i].events & EPOLLIN) {
