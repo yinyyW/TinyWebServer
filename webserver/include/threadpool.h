@@ -36,7 +36,6 @@ template<typename T>
 threadpool<T>::threadpool(int thread_number, int max_request) :
                 m_thread_number(thread_number), m_max_request(max_request),
                 m_stop(false), m_threads(NULL){
-    printf("thread_num: %d, max_request: %d.\n", thread_number, max_request);
     if (thread_number <= 0 || max_request <= 0) {
         throw std::exception();
     }

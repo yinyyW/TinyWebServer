@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+// ################### UTILS FUNCTIONS ###################
 int Server::setnonblocking(int fd) {
     int old_option = fcntl(fd, F_GETFL);
     int new_option = old_option | O_NONBLOCK;
@@ -52,12 +53,15 @@ void Server::cb_func(client_data* user_data) {
     epoll_ctl(m_epollfd, EPOLL_CTL_DEL, user_data->sockfd, 0);
     assert(user_data);
     close(user_data->sockfd);
+    LOG_INFO("close fd %d", user_data->sockfd);
     --http_conn::m_user_count;
 }
 
+// ################### INITIALIZE STATIC VARIABLES ###################
 int Server::m_epollfd = 0;
 int Server::m_pipefd[2] = {0,0};
 
+// ################### START SERVER ###################
 Server::Server() {
     // init users
     users = new http_conn[MAX_FD];
@@ -85,7 +89,6 @@ Server::~Server() {
 }
 
 void Server::init_log() {
-    printf("init log.\n");
     if (m_close_log == 0) {
         if (m_async_log == 1) {
             Log::get_instance()->init("./server_log", 0, 2000, 
@@ -98,12 +101,10 @@ void Server::init_log() {
 }
 
 void Server::init_thread_pool() {
-    printf("init thread pool.\n");
     m_thread_pool = new threadpool<http_conn>(m_thread_num);
 }
 
 void Server::init_conn_pool() {
-    printf("init sql conn pool.\n");
     m_conn_pool = connection_pool::getInstance();
     m_conn_pool->init("localhost", m_db_user, m_db_password, m_db_name,
                         3306, m_db_max_conn, m_close_log);
@@ -113,7 +114,6 @@ void Server::init(int port, int close_log, int async_log, int opt_linger,
                 int thread_num, int db_max_conn,
                 std::string database_name, std::string database_username,
                 std::string database_password) {
-    printf("init server.\n");
     m_port = port;
     m_opt_linger = opt_linger;
     m_thread_num = thread_num;
@@ -188,7 +188,6 @@ void Server::process_read(int connfd) {
         if (t) {
             m_timer_list.del_timer(t);
         }
-        LOG_INFO("close fd %d", connfd);
     }
 }
 
@@ -207,7 +206,6 @@ void Server::process_write(int connfd) {
         if (t) {
             m_timer_list.del_timer(t);
         }
-        LOG_INFO("close fd %d", connfd);
     }
 }
 
@@ -258,6 +256,7 @@ void Server::run() {
     addsig(SIGALRM, sig_handler);
     
     // event loop
+    alarm(TIMESLOT);
     bool timeout = false;
     bool stop_server = false;
     while (!stop_server) {
@@ -293,7 +292,6 @@ void Server::run() {
                 if (t) {
                     m_timer_list.del_timer(t);
                 }
-                LOG_INFO("close fd %d", users_timer[sockfd].sockfd);
             } else if ((sockfd == m_pipefd[0]) && (events[i].events & EPOLLIN)) {
                 // process signals
                 if (!process_signals(timeout, stop_server)) {
@@ -307,7 +305,7 @@ void Server::run() {
         }
         
         if (timeout) {
-            LOG_INFO("%s", "timer tick");
+            // LOG_INFO("%s", "Timeout, timer tick");
             m_timer_list.tick();
             alarm(TIMESLOT);
             timeout = false;

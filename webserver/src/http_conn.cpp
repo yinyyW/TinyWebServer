@@ -22,7 +22,7 @@ const char* error_400_form = "Your request has bad syntax or is inherently impos
 const char* error_403_title = "Forbidden";
 const char* error_403_form = "You do not have permission to get file from this service.\n";
 const char* error_404_title = "Not Found";
-const char* error_404_form = "The requested file was not found on this service.\n";
+const char* error_404_form = "The API request was not found on this service.\n";
 const char* error_500_title = "Internal Error";
 const char* error_500_form = "There was an unusual problem serving the requested file.\n";
 // resource folder
@@ -107,8 +107,6 @@ void http_conn::init() {
 
 http_conn::LINE_STATUS http_conn::parse_line() {
     char temp;
-    // std::cout << "checked idx: " << m_checked_idx << std::endl;
-    // std::cout << "read idx: " << m_read_idx << std::endl;
     for (; m_checked_idx < m_read_idx; ++m_checked_idx) {
         temp = m_read_buf[m_checked_idx];
         if (temp == '\r') {
@@ -165,10 +163,8 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char* text) {
     char* method = text;
     if (strcasecmp(method, "GET") == 0) {
         m_method = GET;
-        std::cout << "request method is GET\n";
     } else if (strcasecmp(method, "POST") == 0) {
         m_method = POST;
-        std::cout << "request method is POST\n";
     } else {
         return BAD_REQUEST;
     }
@@ -198,13 +194,11 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char* text) {
         return BAD_REQUEST;
     }
     
-    std::cout << "The request url is: " << m_url << std::endl;
     m_check_state = CHECK_STATE_HEADER;
     return NO_REQUEST;
 }
 
 http_conn::HTTP_CODE http_conn::parse_headers(char* text ) {
-    // std::cout << "parse header: " << text << std::endl;
     if (text[0] == '\0') {
         // end of headers
         if (m_content_length != 0) {
@@ -227,7 +221,7 @@ http_conn::HTTP_CODE http_conn::parse_headers(char* text ) {
         text += strspn(text, " \t");
         m_host = text;
     } else {
-        // std::cout << "Oop! Unknown Header: " << text << std::endl;
+        LOG_INFO("Unknow header: %s", text);
     }
     return NO_REQUEST;
 }
@@ -235,7 +229,6 @@ http_conn::HTTP_CODE http_conn::parse_headers(char* text ) {
 http_conn::HTTP_CODE http_conn::parse_content(char* text) {
     if (m_read_idx >= m_checked_idx + m_content_length) {
         text[m_content_length] = '\0';
-        std::cout << "request body: " << text << std::endl;
         m_content = text;
         return GET_REQUEST;
     }
@@ -250,7 +243,7 @@ http_conn::HTTP_CODE http_conn::process_read() {
             (line_status = parse_line()) == LINE_OK) {
         text = get_line();
         m_start_line = m_checked_idx;
-        std::cout << "got 1 http line: " << text << std::endl;
+        LOG_INFO("%s", text);
         switch (m_check_state) {
             case CHECK_STATE_REQUESTLINE: {
                 ret = parse_request_line(text);
@@ -306,9 +299,8 @@ http_conn::HTTP_CODE http_conn::user_register() {
     connectionRAII sql_conn = connectionRAII(&sql, m_pool);
     const std::string query = "SELECT * FROM user where username='" 
                                 + std::string(user) + "'";
-    std::cout << "query: " << query << std::endl;
     if (mysql_query(sql, query.c_str())) {
-        std::cout << "error: " << mysql_error(sql) << std::endl;
+        LOG_ERROR("%s", mysql_error(sql));
         return BAD_REQUEST;
     }
     MYSQL_RES *result = mysql_store_result(sql);
@@ -320,12 +312,10 @@ http_conn::HTTP_CODE http_conn::user_register() {
     std::string insert_query = "INSERT INTO user(username, password) VALUES('" 
                                 + std::string(user) + "','"
                                 + std::string(password) + "')";
-    std::cout << "insert query: " << insert_query << std::endl;
     if (mysql_query(sql, insert_query.c_str())) {
-        std::cout << "error: " << mysql_error(sql) << std::endl;
+        LOG_ERROR("%s", mysql_error(sql));
         return BAD_REQUEST;
     }
-    std::cout << "register ok.\n";
     return CREATED;
 }
 
@@ -351,9 +341,8 @@ http_conn::HTTP_CODE http_conn::user_login() {
     connectionRAII sql_conn = connectionRAII(&sql, m_pool);
     const std::string query = "SELECT * FROM user where username='" 
                                 + std::string(user) + "'";
-    std::cout << "query: " << query << std::endl;
     if (mysql_query(sql, query.c_str())) {
-        std::cout << "error: " << mysql_error(sql) << std::endl;
+        LOG_ERROR("%s", mysql_error(sql));
         return BAD_REQUEST;
     }
     MYSQL_RES *result = mysql_store_result(sql);
@@ -365,12 +354,13 @@ http_conn::HTTP_CODE http_conn::user_login() {
 }
 
 http_conn::HTTP_CODE http_conn::api_request() {
-    std::cout << "api request.\n";
     if (m_method == POST) {
         if (strcasecmp(m_url, "/register") == 0) {
             return user_register();
         } else if (strcasecmp(m_url, "/login") == 0) {
             return user_login();
+        } else {
+            return NO_RESOURCE;
         }
     }
     return NO_REQUEST;
@@ -384,13 +374,18 @@ http_conn::HTTP_CODE http_conn::do_request() {
     strcpy(m_real_file, doc_root);
     int len = strlen(doc_root);
     strncpy(m_real_file + len, m_url, FILENAME_LEN - len - 1);
-    std::cout << "file path: " << m_real_file << std::endl;
     
     // validate file path
     if (stat(m_real_file, &m_file_stat) < 0) {
-        return NO_REQUEST;
+        // if file not found, return 404 page
+        memset(m_real_file, '\0', FILENAME_LEN);
+        strcpy(m_real_file, doc_root);
+        strcat(m_real_file, "/404_page.html");
+        printf("m_real_file: %s.\n", m_real_file);
+        stat(m_real_file, &m_file_stat);
     }
     if (!(m_file_stat.st_mode & S_IROTH)) {
+        LOG_ERROR("%s", "FORBIDDEN REQUEST");
         return FORBIDDEN_REQUEST;
     }
     if (S_ISDIR(m_file_stat.st_mode)) {
@@ -426,6 +421,7 @@ bool http_conn::add_response(const char* format, ...) {
     }
     m_write_idx += len;
     va_end(arg_list);
+    LOG_INFO("response:%s", m_write_buf);
     return true;
 }
 
@@ -466,7 +462,6 @@ bool http_conn::add_blank_line() {
 }
 
 bool http_conn::process_write(HTTP_CODE ret) {
-    std::cout << "process write, http_code: " << ret << std::endl;
     switch (ret) {
         case INTERNAL_ERROR: {
             add_status_line(500, error_500_title);
@@ -488,6 +483,14 @@ bool http_conn::process_write(HTTP_CODE ret) {
             add_status_line(403, error_403_title);
             add_headers(strlen(error_403_form));
             if (!add_content(error_403_form)) {
+                return false;
+            }
+            break;
+        }
+        case NO_RESOURCE: {
+            add_status_line(404, error_404_title);
+            add_headers(strlen(error_404_form));
+            if (!add_content(error_404_form)) {
                 return false;
             }
             break;
@@ -558,7 +561,6 @@ bool http_conn::write() {
     int temp = 0;
     int bytes_have_send = 0;
     int bytes_to_send = m_write_idx;
-    // std::cout << "bytes to send: " << bytes_to_send << std::endl;
     
     // if response is empty
     if (bytes_to_send == 0) {

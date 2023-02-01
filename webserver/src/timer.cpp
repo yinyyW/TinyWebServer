@@ -117,7 +117,7 @@ void timer_lst::tick() {
 
 void timer_lst::print() {
     if (head == NULL) {
-        printf("empty list.\n");
+        printf("empty timer list.\n");
         return;
     }
     timer* curr = head;

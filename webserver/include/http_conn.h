@@ -20,6 +20,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include "sql_connection_pool.h"
+#include "log.h"
 
 class http_conn {
     // ############# CONSTANT VARIABLES #############
