@@ -55,7 +55,7 @@ void removefd(int epollfd, int fd) {
 void modfd(int epollfd, int fd, int ev) {
     epoll_event event;
     event.data.fd = fd;
-    event.events |= ev | EPOLLIN | EPOLLRDHUP;
+    event.events = ev | EPOLLET | EPOLLONESHOT | EPOLLRDHUP;
     epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &event);
 }
 
@@ -381,7 +381,6 @@ http_conn::HTTP_CODE http_conn::do_request() {
         memset(m_real_file, '\0', FILENAME_LEN);
         strcpy(m_real_file, doc_root);
         strcat(m_real_file, "/404_page.html");
-        printf("m_real_file: %s.\n", m_real_file);
         stat(m_real_file, &m_file_stat);
     }
     if (!(m_file_stat.st_mode & S_IROTH)) {

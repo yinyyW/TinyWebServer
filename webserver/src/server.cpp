@@ -25,7 +25,6 @@ void Server::addfd(int epollfd, int fd, bool one_shot) {
 }
 
 void Server::sig_handler(int sig) {
-    // printf("signal: %d\n", sig);
     int save_errno = errno;
     int msg = sig;
     send(m_pipefd[1], (char*)&msg, 1, 0);
@@ -91,10 +90,10 @@ Server::~Server() {
 void Server::init_log() {
     if (m_close_log == 0) {
         if (m_async_log == 1) {
-            Log::get_instance()->init("./server_log", 0, 2000, 
+            Log::get_instance()->init("./log/server_log", 0, 2000, 
                                     800000, 800);
         } else {
-            Log::get_instance()->init("./server_log", 0, 2000, 
+            Log::get_instance()->init("./log/server_log", 0, 2000, 
                                     800000, 0);
         }
     }
@@ -210,7 +209,7 @@ void Server::process_write(int connfd) {
 }
 
 void Server::run() {
-    printf("server run.\n");
+    printf("starts server.\n");
     // listen socket
     // bind to any local address
     m_listenfd = socket(PF_INET, SOCK_STREAM, 0);
@@ -305,7 +304,6 @@ void Server::run() {
         }
         
         if (timeout) {
-            // LOG_INFO("%s", "Timeout, timer tick");
             m_timer_list.tick();
             alarm(TIMESLOT);
             timeout = false;

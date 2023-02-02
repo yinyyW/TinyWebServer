@@ -25,11 +25,13 @@
             const password = document.querySelector("input[name='password").value;
             const xhr = new XMLHttpRequest();
             const data = "user=" + username + "&password=" + password;
-            // console.log(data);
             xhr.onreadystatechange = () => {
-                console.log(xhr);
                 if(xhr.readyState == 4) {
-                    console.log(xhr.response);
+                    if (xhr.status == 400) {
+                        alert(xhr.response);
+                    } else {
+                        window.location.href = "home.html";
+                    }
                 }
             };
             xhr.open("POST", url, true);

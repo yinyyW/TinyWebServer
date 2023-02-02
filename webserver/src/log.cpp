@@ -52,7 +52,7 @@ bool Log::init(const char *file_name, int close_log, int log_buf_size,
         snprintf(log_full_name, 511, "%s%d_%02d_%02d_%s",
                     dir_name, sys_tm->tm_year + 1900, sys_tm->tm_mon + 1, sys_tm->tm_mday, log_name);
     }
-    
+    printf("log full name: %s\n", log_full_name);
     m_today = sys_tm->tm_mday;
     m_fp = fopen(log_full_name, "a");
     
