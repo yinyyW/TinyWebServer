@@ -21,6 +21,18 @@ void parseArgs(int argc, char* argv[], int& port, int& log_write, int& opt_linge
                 opt_linger = atoi(optarg);
                 break;
             }
+            case 's': {
+                sql_conn_num = atoi(optarg);
+                break;
+            }
+            case 't': {
+                thread_num = atoi(optarg);
+                break;
+            }
+            case 'c': {
+                close_log = atoi(optarg);
+                break;
+            }
         }
     }
 }

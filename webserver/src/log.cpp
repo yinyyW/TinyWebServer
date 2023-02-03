@@ -10,8 +10,9 @@
 #include <sys/select.h>
 
 Log::Log() {
-    m_close_log = 0;
+    m_close_log = 1;
     m_is_async = false;
+    m_count_line = 0;
 }
 
 Log::~Log() {
