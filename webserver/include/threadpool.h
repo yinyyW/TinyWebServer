@@ -96,7 +96,22 @@ void threadpool<T>::run() {
         if (!request) {
             continue;
         }
-        request->process();
+        
+        // read, process or write
+        if (request->m_state == 0) {
+            if (request->read()) {
+                request->m_io = 1;
+                request->process();
+            } else {
+                request->m_io = 2;
+            }
+        } else if (request->m_state == 1) {
+            if (request->write()) {
+                request->m_io = 1;
+            } else {
+                request->m_io = 2;
+            }
+        }
     }
 }
 

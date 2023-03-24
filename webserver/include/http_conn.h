@@ -84,10 +84,12 @@ class http_conn {
     public:
         static int m_epollfd;
         static int m_user_count;
+        int m_state; // 0: read, 1: write
+        int m_io; // 1: read/write success, 2: read/write fail
         connection_pool* m_pool;
     
     private:
-        // client's socket and address
+        // client's meta data
         int m_sockfd;
         sockaddr_in m_address;
         char* doc_root;

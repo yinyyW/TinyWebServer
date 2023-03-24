@@ -170,42 +170,90 @@ bool Server::process_signals(bool& timeout, bool& stop_server) {
 }
 
 void Server::process_read(int connfd) {
+    // adjust timer
     timer* t = users_timer[connfd].conn_timer;
-    if (users[connfd].read()) {
-        LOG_INFO("read client(%s) data", inet_ntoa(users[connfd].get_address()->sin_addr));
-        m_thread_pool->append(users + connfd);
-        
-        // adjust timer
-        if (t) {
-            time_t curr = time(NULL);
-            t->expire = curr + 3 * TIMESLOT;
-            m_timer_list.adjust_timer(t);
-            LOG_INFO("%s", "adjust timer");
-        }
-    } else {
-        cb_func(users_timer + connfd);
-        if (t) {
-            m_timer_list.del_timer(t);
+    if (t) {
+        time_t curr = time(NULL);
+        t->expire = curr + 3 * TIMESLOT;
+        m_timer_list.adjust_timer(t);
+        LOG_INFO("%s", "adjust timer");
+    }
+    // read
+    users[connfd].m_state = 0;
+    LOG_INFO("read client(%s) data", inet_ntoa(users[connfd].get_address()->sin_addr));
+    m_thread_pool->append(users + connfd);
+    while (true) {
+        if (users[connfd].m_io == 1 || users[connfd].m_io == 2) {
+            if (users[connfd].m_io == 2) {
+                // close connection
+                cb_func(users_timer + connfd);
+                if (t) {
+                    m_timer_list.del_timer(t);
+                }
+            }
+            users[connfd].m_io = 0;
+            break;
         }
     }
+    // if (users[connfd].read()) {
+    //     LOG_INFO("read client(%s) data", inet_ntoa(users[connfd].get_address()->sin_addr));
+    //     m_thread_pool->append(users + connfd);
+        
+    //     // adjust timer
+    //     if (t) {
+    //         time_t curr = time(NULL);
+    //         t->expire = curr + 3 * TIMESLOT;
+    //         m_timer_list.adjust_timer(t);
+    //         LOG_INFO("%s", "adjust timer");
+    //     }
+    // } else {
+    //     cb_func(users_timer + connfd);
+    //     if (t) {
+    //         m_timer_list.del_timer(t);
+    //     }
+    // }
 }
 
 void Server::process_write(int connfd) {
+    // adjust timer
     timer* t = users_timer[connfd].conn_timer;
-    if (users[connfd].write()) {
-        LOG_INFO("write client(%s) data", inet_ntoa(users[connfd].get_address()->sin_addr));
-        if (t) {
-            time_t curr = time(NULL);
-            t->expire = curr + 3 * TIMESLOT;
-            m_timer_list.adjust_timer(t);
-            LOG_INFO("%s", "adjust timer");
-        }
-    } else {
-        cb_func(users_timer + connfd);
-        if (t) {
-            m_timer_list.del_timer(t);
+    if (t) {
+        time_t curr = time(NULL);
+        t->expire = curr + 3 * TIMESLOT;
+        m_timer_list.adjust_timer(t);
+        LOG_INFO("%s", "adjust timer");
+    }
+    // write
+    users[connfd].m_state = 1;
+    LOG_INFO("write client(%s) data", inet_ntoa(users[connfd].get_address()->sin_addr));
+    m_thread_pool->append(users + connfd);
+    while (true) {
+        if (users[connfd].m_io == 1 || users[connfd].m_io == 2) {
+            if (users[connfd].m_io == 2) {
+                // close connection
+                cb_func(users_timer + connfd);
+                if (t) {
+                    m_timer_list.del_timer(t);
+                }
+            }
+            users[connfd].m_io = 0;
+            break;
         }
     }
+    // if (users[connfd].write()) {
+    //     LOG_INFO("write client(%s) data", inet_ntoa(users[connfd].get_address()->sin_addr));
+    //     if (t) {
+    //         time_t curr = time(NULL);
+    //         t->expire = curr + 3 * TIMESLOT;
+    //         m_timer_list.adjust_timer(t);
+    //         LOG_INFO("%s", "adjust timer");
+    //     }
+    // } else {
+    //     cb_func(users_timer + connfd);
+    //     if (t) {
+    //         m_timer_list.del_timer(t);
+    //     }
+    // }
 }
 
 void Server::run() {
