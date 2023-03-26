@@ -28,14 +28,19 @@ CREATE TABLE user(
 
 ## Demo演示
 `./server [-p port] [-l async_log] [-o opt_linger] [-s sql_conn_num] [-t thread_num] [-c close_log]`  
-运行环境：Ubuntu, MySql,  
+运行环境：Ubuntu22.04.1, MySql8.0.31  
 默认参数：端口：8899，关闭日志：0，异步写日志：1，HTTP中的keep-alive：0，线程池中的线程
 数量：8，数据库连接池中的数据库连接数量：8  
+
+![index_page](images/index_page.png)
+![register](images/register_page.png)
+![login](images/login_page.png)
+![home](images/home_page.png)  
 ## 参考
 ![reactor](images/reactor.png)
 ![半同步半反应堆](images/半同步半反应堆.png)图片参考《Linux高性能服务器编程》
 ## 压力测试
-
+![webbench](images/webbench.png)  
 ## 缺陷
 - 与API相关的方法应单独实现，独立于http连接类
 - 在I/O操作的结果返回前，程序会被阻塞。这是由于需要根据I/O操作的结果判断是否关闭连接。运行效率因此受影响
